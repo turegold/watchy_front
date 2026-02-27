@@ -1,74 +1,68 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import RoomCard from "../components/RoomCard";
+import { createRoom } from "../api/room";
+import { fetchRooms, joinRoom } from "../api/rooms";
+import { getMe } from "../api/user";
 
 const RoomsPage = () => {
+  const navigate = useNavigate();
   const [rooms, setRooms] = useState([]);
   const [status, setStatus] = useState("loading");
-  const enrichedRef = useRef(false);
+  const [statusMessage, setStatusMessage] = useState(null);
+  const [currentUserNickname, setCurrentUserNickname] = useState("Guest");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newRoomTitle, setNewRoomTitle] = useState("");
+  const [newRoomPrivate, setNewRoomPrivate] = useState(false);
+  const [createStatus, setCreateStatus] = useState(null);
+  const [joiningRoomId, setJoiningRoomId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    const fetchRooms = async () => {
+    const fetchMe = async () => {
       try {
-        const response = await fetch("/api/rooms");
-        if (!response.ok) {
-          throw new Error(`Failed to load rooms: ${response.status}`);
-        }
-        const data = await response.json();
+        const response = await getMe();
+        const me = response?.data ?? {};
         if (!cancelled) {
-          const baseRooms = Array.isArray(data) ? data : [];
-          setRooms(baseRooms);
-          setStatus("ready");
+          setCurrentUserNickname(me.nickname ?? "Guest");
         }
-      } catch (error) {
+      } catch {
         if (!cancelled) {
-          console.error(error);
-          setStatus("error");
+          setCurrentUserNickname("Guest");
         }
       }
     };
 
-    fetchRooms();
-
+    fetchMe();
     return () => {
       cancelled = true;
     };
   }, []);
 
+  const loadRooms = useCallback(async () => {
+    try {
+      const data = await fetchRooms();
+      setRooms(data);
+      setStatus("ready");
+      setStatusMessage(null);
+    } catch (error) {
+      console.error(error);
+      setStatus("error");
+      setStatusMessage(error?.message ?? "방 목록을 불러오지 못했습니다.");
+    }
+  }, []);
+
   useEffect(() => {
-    let cancelled = false;
-
-    const enrichRooms = async () => {
-      if (enrichedRef.current || rooms.length === 0) return;
-      const nextRooms = await Promise.all(
-        rooms.map(async (room) => {
-          const roomId = room.id ?? room.roomId;
-          const existingVideoId =
-            room.videoId ?? room.currentVideoId ?? room.video?.id;
-          if (existingVideoId || !roomId) return room;
-          try {
-            const response = await fetch(`/api/rooms/${roomId}/video`);
-            if (!response.ok) return room;
-            const state = await response.json();
-            return { ...room, videoId: state?.videoId ?? null };
-          } catch {
-            return room;
-          }
-        })
-      );
-      if (!cancelled) {
-        setRooms(nextRooms);
-      }
-      enrichedRef.current = true;
-    };
-
-    enrichRooms();
+    loadRooms();
+    const pollingId = window.setInterval(() => {
+      loadRooms();
+    }, 7000);
 
     return () => {
-      cancelled = true;
+      window.clearInterval(pollingId);
     };
-  }, [rooms]);
+  }, [loadRooms]);
 
   if (status === "loading") {
     return (
@@ -81,10 +75,57 @@ const RoomsPage = () => {
   if (status === "error") {
     return (
       <div className="rooms-page">
-        <div className="rooms-page__status">방 목록을 불러오지 못했습니다.</div>
+        <div className="rooms-page__status">{statusMessage ?? "방 목록을 불러오지 못했습니다."}</div>
       </div>
     );
   }
+
+  const handleCreateRoom = async () => {
+    const title = newRoomTitle.trim();
+    if (!title) {
+      setCreateStatus("방 제목을 입력해주세요.");
+      return;
+    }
+
+    try {
+      setCreateStatus("creating");
+      const created = await createRoom(title, newRoomPrivate);
+      const createdRoomId = created?.id ?? created?.roomId;
+      setCreateStatus("created");
+      setCreateOpen(false);
+      setNewRoomTitle("");
+      setNewRoomPrivate(false);
+
+      if (createdRoomId) {
+        navigate(`/room/${createdRoomId}`, { state: { alreadyJoined: true } });
+        return;
+      }
+
+      await loadRooms();
+    } catch (error) {
+      const message = error?.response?.data?.message ?? "방 생성에 실패했습니다.";
+      setCreateStatus(message);
+    }
+  };
+
+  const handleJoinRoom = async (roomId) => {
+    if (!roomId || joiningRoomId) {
+      return;
+    }
+
+    setJoiningRoomId(roomId);
+    setStatusMessage(null);
+    try {
+      await joinRoom(Number(roomId));
+      navigate(`/room/${roomId}`, { state: { alreadyJoined: true } });
+    } catch (error) {
+      const message = error?.message ?? "방 참여에 실패했습니다.";
+      setStatusMessage(message);
+      window.alert(message);
+    } finally {
+      setJoiningRoomId(null);
+    }
+  };
 
   return (
     <div className="rooms-page">
@@ -97,16 +138,23 @@ const RoomsPage = () => {
           </div>
         </div>
         <div className="rooms-header__user">
-          <span className="user-name">Guest</span>
-          <div className="user-avatar">G</div>
+          <span className="user-name">{currentUserNickname}</span>
+          <div className="user-avatar">{String(currentUserNickname).slice(0, 1).toUpperCase()}</div>
         </div>
       </header>
 
       <div className="rooms-tabs">
-        <button className="tab-button tab-button--active" type="button">
+        <button
+          className={`tab-button ${createOpen ? "tab-button--active" : ""}`}
+          type="button"
+          onClick={() => {
+            setCreateOpen((prev) => !prev);
+            setCreateStatus(null);
+          }}
+        >
           방 만들기
         </button>
-        <button className="tab-button" type="button">
+        <button className="tab-button" type="button" disabled>
           빠른 입장
         </button>
         <button className="tab-button" type="button">
@@ -114,13 +162,54 @@ const RoomsPage = () => {
         </button>
       </div>
 
+      {statusMessage && <p className="error-text">{statusMessage}</p>}
+
+      {createOpen && (
+        <div className="rooms-page__status">
+          <div className="form">
+            <label htmlFor="create-room-title">방 제목</label>
+            <input
+              id="create-room-title"
+              type="text"
+              value={newRoomTitle}
+              onChange={(event) => setNewRoomTitle(event.target.value)}
+              placeholder="예: 주말 영화 감상방"
+            />
+            <label>
+              <input
+                type="checkbox"
+                checked={newRoomPrivate}
+                onChange={(event) => setNewRoomPrivate(event.target.checked)}
+              />{" "}
+              비공개 방
+            </label>
+            <button
+              className="primary-button"
+              type="button"
+              onClick={handleCreateRoom}
+              disabled={createStatus === "creating"}
+            >
+              {createStatus === "creating" ? "생성 중..." : "생성"}
+            </button>
+            {createStatus && createStatus !== "creating" && createStatus !== "created" && (
+              <p className="error-text">{createStatus}</p>
+            )}
+          </div>
+        </div>
+      )}
+
       <main className="rooms-main">
         <div className="rooms-grid">
           {rooms.length === 0 ? (
             <div className="rooms-page__status">현재 생성된 방이 없습니다.</div>
           ) : (
             rooms.map((room) => (
-              <RoomCard key={room.id ?? room.roomId} room={room} />
+              <RoomCard
+                key={room.roomId ?? room.id}
+                room={room}
+                onJoin={handleJoinRoom}
+                joining={joiningRoomId === (room.roomId ?? room.id)}
+              />
             ))
           )}
         </div>

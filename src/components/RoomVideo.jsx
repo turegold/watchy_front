@@ -8,9 +8,44 @@ import {
 } from "react";
 import SockJS from "sockjs-client";
 import { Client } from "@stomp/stompjs";
+import { controlRoomVideo, getRoomVideoState } from "../api/room";
+import speakerIcon from "../imgs/speacker.png";
 
-const RoomVideo = forwardRef(({ roomId }, ref) => {
-  const [connected, setConnected] = useState(false);
+const parseTimestampMs = (value) => {
+  if (value == null) return null;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    if (value > 1_000_000_000_000) return value;
+    if (value > 1_000_000_000) return value * 1000;
+    return null;
+  }
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const resolveCurrentTime = (state) => {
+  const rawTime = Number(state?.currentTime ?? 0);
+  const baseTime = Number.isFinite(rawTime) && rawTime > 0 ? rawTime : 0;
+  const status = state?.status ?? "PAUSED";
+  if (status !== "PLAYING") return baseTime;
+
+  const timestampCandidates = [
+    state?.timestamp,
+    state?.updatedAt,
+    state?.lastUpdatedAt,
+    state?.lastActionAt,
+    state?.syncedAt,
+    state?.serverTime,
+  ];
+  const syncedAt = timestampCandidates
+    .map((candidate) => parseTimestampMs(candidate))
+    .find((value) => value != null);
+  if (syncedAt == null) return baseTime;
+
+  const elapsedSec = (Date.now() - syncedAt) / 1000;
+  return elapsedSec > 0 ? baseTime + elapsedSec : baseTime;
+};
+
+const RoomVideo = forwardRef(({ roomId, canControlVideo = true, onControlForbidden }, ref) => {
   const [videoId, setVideoId] = useState(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [status, setStatus] = useState(null);
@@ -30,6 +65,9 @@ const RoomVideo = forwardRef(({ roomId }, ref) => {
   const userInteractedRef = useRef(false);
   const lastAppliedRef = useRef({ videoId: null, time: 0, status: null });
   const [needsSoundUnlock, setNeedsSoundUnlock] = useState(false);
+  const [localVolume, setLocalVolume] = useState(100);
+  const [localMuted, setLocalMuted] = useState(false);
+  const [fullscreenActive, setFullscreenActive] = useState(false);
   const lastBufferingAtRef = useRef(0);
   const lastPlayerTimeRef = useRef(0);
   const lastPlayerStateRef = useRef(null);
@@ -43,6 +81,22 @@ const RoomVideo = forwardRef(({ roomId }, ref) => {
   const lastPlaySentAtRef = useRef(0);
   const pauseConfirmTimerRef = useRef(null);
 
+  const applyLocalAudio = useCallback((volume, muted) => {
+    if (!playerRef.current) return;
+    if (typeof playerRef.current.setVolume === "function") {
+      playerRef.current.setVolume(volume);
+    }
+    if (muted) {
+      if (typeof playerRef.current.mute === "function") {
+        playerRef.current.mute();
+      }
+      return;
+    }
+    if (typeof playerRef.current.unMute === "function") {
+      playerRef.current.unMute();
+    }
+  }, []);
+
   const applyServerState = useCallback(
     (nextState) => {
       if (!nextState?.videoId) return;
@@ -50,7 +104,8 @@ const RoomVideo = forwardRef(({ roomId }, ref) => {
         pendingStateRef.current = nextState;
         return;
       }
-      const nextTime = nextState.currentTime ?? 0;
+      const rawNextTime = Number(nextState.currentTime ?? 0);
+      const nextTime = Number.isFinite(rawNextTime) && rawNextTime > 0 ? rawNextTime : 0;
       const nextStatus = nextState.status ?? "PAUSED";
       suppressEventsUntilRef.current = Date.now() + 1000;
       syncingRef.current = true;
@@ -130,13 +185,9 @@ const RoomVideo = forwardRef(({ roomId }, ref) => {
 
     const fetchInitialState = async () => {
       try {
-        const response = await fetch(`/api/rooms/${roomId}/video`);
-        if (!response.ok) {
-          throw new Error(`Failed to load video state: ${response.status}`);
-        }
-        const state = await response.json();
+        const state = await getRoomVideoState(roomId);
         const nextVideoId = state?.videoId ?? null;
-        const nextCurrentTime = state?.currentTime ?? 0;
+        const nextCurrentTime = resolveCurrentTime(state);
         const nextStatus = state?.status ?? null;
         initialStateLoadedRef.current = true;
         setVideoId(nextVideoId);
@@ -172,12 +223,11 @@ const RoomVideo = forwardRef(({ roomId }, ref) => {
       webSocketFactory: () => socket,
       reconnectDelay: 5000,
       onConnect: () => {
-        setConnected(true);
         client.subscribe(`/topic/rooms/${roomId}/video`, (message) => {
           try {
             const payload = JSON.parse(message.body);
             const nextVideoId = payload?.videoId ?? null;
-            const nextCurrentTime = payload?.currentTime ?? 0;
+            const nextCurrentTime = resolveCurrentTime(payload);
             const nextStatus = payload?.status ?? null;
             initialStateLoadedRef.current = true;
             setVideoId(nextVideoId);
@@ -199,7 +249,6 @@ const RoomVideo = forwardRef(({ roomId }, ref) => {
         });
       },
       onDisconnect: () => {
-        setConnected(false);
       },
     });
 
@@ -238,29 +287,27 @@ const RoomVideo = forwardRef(({ roomId }, ref) => {
     }
 
     const callControlApi = async (action, time) => {
-      if (!roomId) return;
+      if (!roomId || !canControlVideo) return;
       try {
-        const response = await fetch(
-          `/api/rooms/${roomId}/video/control?userId=1`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              roomId: Number(roomId),
-              userId: 1,
-              action,
-              currentTime: time,
-              videoId,
-            }),
-          }
-        );
-        if (!response.ok) {
-          throw new Error(`Request failed: ${response.status}`);
-        }
+        await controlRoomVideo(roomId, {
+          roomId: Number(roomId),
+          action,
+          currentTime: time,
+          videoId,
+        });
         lastSentRef.current = { action, time: Date.now() };
       } catch (error) {
+        const status = error?.response?.status;
+        const code = error?.response?.data?.code;
+        if (
+          status === 403 ||
+          code === "FORBIDDEN" ||
+          code === "ACCESS_DENIED" ||
+          code === "NOT_ROOM_HOST" ||
+          code === "ROOM_HOST_REQUIRED"
+        ) {
+          onControlForbidden?.();
+        }
         console.error(error);
       }
     };
@@ -345,7 +392,7 @@ const RoomVideo = forwardRef(({ roomId }, ref) => {
         width: 560,
         height: 315,
         playerVars: {
-          autoplay: 1,
+          autoplay: 0,
           rel: 0,
           modestbranding: 1,
           playsinline: 1,
@@ -353,9 +400,16 @@ const RoomVideo = forwardRef(({ roomId }, ref) => {
         events: {
           onReady: (event) => {
             playerReadyRef.current = true;
+            applyLocalAudio(localVolume, localMuted);
             if (pendingStateRef.current) {
               applyServerState(pendingStateRef.current);
               pendingStateRef.current = null;
+            } else {
+              applyServerState({
+                videoId,
+                currentTime: currentTimeRef.current,
+                status: statusRef.current ?? "PAUSED",
+              });
             }
             if (!seekPollRef.current) {
               lastTimeSampleRef.current =
@@ -479,7 +533,7 @@ const RoomVideo = forwardRef(({ roomId }, ref) => {
       window.removeEventListener("touchstart", handleSeekStart);
       window.removeEventListener("touchend", handleSeekEnd);
     };
-  }, [videoId, roomId]);
+  }, [videoId, roomId, canControlVideo, applyLocalAudio, applyServerState]);
 
   useEffect(() => {
     if (!playerRef.current || !videoId) return;
@@ -487,6 +541,37 @@ const RoomVideo = forwardRef(({ roomId }, ref) => {
     currentTimeRef.current = currentTime;
     initialSyncDoneRef.current = true;
   }, [currentTime, status, videoId]);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const target = playerFrameRef.current;
+      const active = Boolean(
+        target &&
+          (document.fullscreenElement === target ||
+            document.webkitFullscreenElement === target ||
+            document.mozFullScreenElement === target ||
+            document.msFullscreenElement === target)
+      );
+      setFullscreenActive(active);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    document.addEventListener("mozfullscreenchange", handleFullscreenChange);
+    document.addEventListener("MSFullscreenChange", handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("mozfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("MSFullscreenChange", handleFullscreenChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!videoId || !playerReadyRef.current) return;
+    applyLocalAudio(localVolume, localMuted);
+  }, [videoId, localVolume, localMuted, applyLocalAudio]);
 
   useImperativeHandle(ref, () => ({
     getCurrentTime: () => {
@@ -505,36 +590,119 @@ const RoomVideo = forwardRef(({ roomId }, ref) => {
 
   return (
     <div className="player-card">
-      <div className="player-card__meta">
-        <span className={connected ? "pill pill--on" : "pill pill--off"}>
-          {connected ? "LIVE" : "OFFLINE"}
-        </span>
-        <span className="player-card__hint">웹소켓 동기화 중</span>
-      </div>
       {videoId ? (
-        <div className="player-frame" ref={playerFrameRef}>
-          <div className="player-frame__inner" ref={playerContainerRef} />
-          {status === "PAUSED" && (
-            <div className="player-overlay">
-              <div className="player-overlay__badge">일시정지</div>
+        <>
+          <div className={`player-frame ${canControlVideo ? "" : "player-frame--readonly"}`} ref={playerFrameRef}>
+            <div className="player-frame__inner" ref={playerContainerRef} />
+            {status === "PAUSED" && (
+              <div className="player-overlay player-overlay--paused">
+                <div className="player-overlay__badge">일시정지</div>
+              </div>
+            )}
+            {!canControlVideo && <div className="player-readonly-badge">방장만 조작 가능</div>}
+            {status === "PLAYING" && needsSoundUnlock && (
+              <button
+                type="button"
+                className="sound-unlock"
+                onClick={() => {
+                  if (playerRef.current?.unMute) {
+                    playerRef.current.unMute();
+                  }
+                  userInteractedRef.current = true;
+                  setNeedsSoundUnlock(false);
+                }}
+              >
+                소리 켜기
+              </button>
+            )}
+          </div>
+          <div className="player-audio-bar">
+            <div className="player-audio-bar__volume">
+              <button
+                type="button"
+                className="player-audio-bar__icon-btn"
+                aria-label={localMuted || localVolume === 0 ? "음소거 해제" : "음소거"}
+                onClick={() => {
+                  const nextMuted = !localMuted;
+                  setLocalMuted(nextMuted);
+                  applyLocalAudio(localVolume, nextMuted);
+                  if (!nextMuted) {
+                    userInteractedRef.current = true;
+                    setNeedsSoundUnlock(false);
+                  }
+                }}
+              >
+                <img src={speakerIcon} alt="소리" className="player-audio-bar__icon-image" />
+              </button>
+              <div className="player-audio-bar__volume-panel">
+                <input
+                  className="player-audio-bar__slider"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={localVolume}
+                  onChange={(event) => {
+                    const nextVolume = Number(event.target.value);
+                    const nextMuted = nextVolume === 0;
+                    setLocalVolume(nextVolume);
+                    setLocalMuted(nextMuted);
+                    applyLocalAudio(nextVolume, nextMuted);
+                    if (!nextMuted) {
+                      userInteractedRef.current = true;
+                      setNeedsSoundUnlock(false);
+                    }
+                  }}
+                />
+                <span className="player-audio-bar__value">
+                  {localMuted || localVolume === 0 ? 0 : localVolume}%
+                </span>
+              </div>
             </div>
-          )}
-          {status === "PLAYING" && needsSoundUnlock && (
-            <button
-              type="button"
-              className="sound-unlock"
-              onClick={() => {
-                if (playerRef.current?.unMute) {
-                  playerRef.current.unMute();
-                }
-                userInteractedRef.current = true;
-                setNeedsSoundUnlock(false);
-              }}
-            >
-              소리 켜기
-            </button>
-          )}
-        </div>
+            <div className="player-audio-bar__actions">
+              <button
+                type="button"
+                className={`player-audio-bar__action-btn ${fullscreenActive ? "is-active" : ""}`}
+                onClick={async () => {
+                  const target = playerFrameRef.current;
+                  if (!target) return;
+                  try {
+                    const fullscreenElement =
+                      document.fullscreenElement ||
+                      document.webkitFullscreenElement ||
+                      document.mozFullScreenElement ||
+                      document.msFullscreenElement;
+                    if (fullscreenElement) {
+                      if (document.exitFullscreen) {
+                        await document.exitFullscreen();
+                      } else if (document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen();
+                      } else if (document.mozCancelFullScreen) {
+                        document.mozCancelFullScreen();
+                      } else if (document.msExitFullscreen) {
+                        document.msExitFullscreen();
+                      }
+                      return;
+                    }
+                    if (target.requestFullscreen) {
+                      await target.requestFullscreen();
+                    } else if (target.webkitRequestFullscreen) {
+                      target.webkitRequestFullscreen();
+                    } else if (target.mozRequestFullScreen) {
+                      target.mozRequestFullScreen();
+                    } else if (target.msRequestFullscreen) {
+                      target.msRequestFullscreen();
+                    }
+                  } catch (error) {
+                    console.error("전체화면 전환 실패:", error);
+                  }
+                }}
+              >
+                {fullscreenActive ? "축소" : "전체"}
+              </button>
+            </div>
+          </div>
+        </>
       ) : (
         <div className="empty-state">
           <p>재생 중인 영상이 없습니다.</p>
