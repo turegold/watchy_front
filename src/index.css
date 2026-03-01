@@ -843,8 +843,8 @@ input {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  padding: 20px 28px;
-  min-height: 96px;
+  padding: clamp(14px, 2vw, 20px) clamp(16px, 3vw, 28px);
+  min-height: clamp(76px, 10vw, 96px);
   border-bottom: 1px solid var(--border);
   background: #fff;
   position: sticky;
@@ -855,14 +855,14 @@ input {
 .app-header__brand {
   display: inline-flex;
   align-items: center;
-  gap: 14px;
+  gap: clamp(10px, 1.5vw, 14px);
   font-weight: 700;
-  font-size: 1.55rem;
+  font-size: clamp(1.2rem, 1rem + 1vw, 1.5rem);
 }
 
 .app-header__brand-icon {
-  width: 60px;
-  height: 60px;
+  width: clamp(40px, 5vw, 56px);
+  height: clamp(40px, 5vw, 56px);
   border-radius: 8px;
   flex: 0 0 auto;
 }
@@ -876,7 +876,34 @@ input {
 .app-header__nav a,
 .app-header__nav button {
   line-height: 1;
-  font-size: 1.2rem;
+  font-size: clamp(0.98rem, 0.9rem + 0.35vw, 1.08rem);
+}
+
+@media (max-width: 640px) {
+  .app-header {
+    gap: 12px;
+    min-height: auto;
+    padding: 14px 16px;
+  }
+
+  .app-header__brand {
+    gap: 10px;
+    font-size: 1.2rem;
+  }
+
+  .app-header__brand-icon {
+    width: 44px;
+    height: 44px;
+  }
+
+  .app-header__nav {
+    gap: 10px;
+  }
+
+  .app-header__nav a,
+  .app-header__nav button {
+    font-size: 0.98rem;
+  }
 }
 
 .content-page,
