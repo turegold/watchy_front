@@ -20,7 +20,7 @@ export default function Header() {
   return (
     <header className="app-header">
       <Link to="/" className="app-header__brand">
-        WatchParty
+        Watchy
       </Link>
       <nav className="app-header__nav">
         <Link to="/rooms">방 목록</Link>

@@ -218,7 +218,7 @@ const RoomVideo = forwardRef(({ roomId, canControlVideo = true, onControlForbidd
     });
     window.addEventListener("keydown", handleUserInteraction, { once: true });
 
-    const socket = new SockJS("/ws");
+    const socket = new SockJS(`${VITE_API_BASE_URL}/ws`);
     const client = new Client({
       webSocketFactory: () => socket,
       reconnectDelay: 5000,
@@ -502,7 +502,7 @@ const RoomVideo = forwardRef(({ roomId, canControlVideo = true, onControlForbidd
                 const stillPaused =
                   typeof playerRef.current.getPlayerState === "function"
                     ? playerRef.current.getPlayerState() ===
-                      window.YT.PlayerState.PAUSED
+                    window.YT.PlayerState.PAUSED
                     : false;
                 const nowTime =
                   typeof playerRef.current.getCurrentTime === "function"
@@ -547,10 +547,10 @@ const RoomVideo = forwardRef(({ roomId, canControlVideo = true, onControlForbidd
       const target = playerFrameRef.current;
       const active = Boolean(
         target &&
-          (document.fullscreenElement === target ||
-            document.webkitFullscreenElement === target ||
-            document.mozFullScreenElement === target ||
-            document.msFullscreenElement === target)
+        (document.fullscreenElement === target ||
+          document.webkitFullscreenElement === target ||
+          document.mozFullScreenElement === target ||
+          document.msFullscreenElement === target)
       );
       setFullscreenActive(active);
     };

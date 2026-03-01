@@ -1,4 +1,7 @@
+import React from "react";
 import { API_BASE_URL } from "../api/config";
+import googleIcon from "../imgs/google_icon.png";
+import kakaoIcon from "../imgs/kakao_icon.png";
 
 export default function LoginPage() {
   const startOAuthLogin = (provider: "google" | "kakao") => {
@@ -6,25 +9,32 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="auth-page">
-      <section className="card">
-        <h1>로그인</h1>
-        <p className="muted">OAuth 로그인 후 /auth/callback 으로 리다이렉트되어 토큰이 저장됩니다.</p>
+    <main className="auth-page auth-page--login">
+      <section className="login-hero card">
+        <p className="login-hero__eyebrow">Sync. Chat. Watch.</p>
+        <h1 className="login-hero__title">Watchy</h1>
+        <p className="login-hero__description">같이 보고, 나누는 공간</p>
 
-        <div className="button-group">
-          <button type="button" className="primary-button" onClick={() => startOAuthLogin("google")}>
-            Google 로그인
+        <div className="login-actions">
+          <button
+            type="button"
+            className="social-login social-login--google"
+            onClick={() => startOAuthLogin("google")}
+            aria-label="Google 로그인"
+          >
+            <img src={googleIcon} alt="" className="social-login__icon" />
+            <span>구글 로그인</span>
           </button>
-          <button type="button" className="primary-button" onClick={() => startOAuthLogin("kakao")}>
-            Kakao 로그인
+          <button
+            type="button"
+            className="social-login social-login--kakao"
+            onClick={() => startOAuthLogin("kakao")}
+            aria-label="Kakao 로그인"
+          >
+            <img src={kakaoIcon} alt="" className="social-login__icon" />
+            <span>카카오 로그인</span>
           </button>
         </div>
-
-        <p className="notice-text">
-          백엔드가 현재 JSON만 응답하면 콜백 처리가 되지 않습니다. OAuth2 성공 시
-          <code> /auth/callback?accessToken=...&refreshToken=... </code>
-          로 redirect 되도록 백엔드 수정이 필요합니다.
-        </p>
       </section>
     </main>
   );
