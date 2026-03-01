@@ -218,9 +218,13 @@ const RoomVideo = forwardRef(({ roomId, canControlVideo = true, onControlForbidd
     });
     window.addEventListener("keydown", handleUserInteraction, { once: true });
 
-    const socket = new SockJS(`${VITE_API_BASE_URL}/ws`);
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+    if (!API_BASE_URL) {
+      console.error("VITE_API_BASE_URL is missing");
+      return;
+    }
     const client = new Client({
-      webSocketFactory: () => socket,
+      webSocketFactory: () => new SockJS(`${API_BASE_URL}/ws`),
       reconnectDelay: 5000,
       onConnect: () => {
         client.subscribe(`/topic/rooms/${roomId}/video`, (message) => {
