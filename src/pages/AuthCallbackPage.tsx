@@ -17,7 +17,7 @@ export default function AuthCallbackPage() {
     }
 
     setTokens(accessToken, refreshToken);
-    navigate("/profile", { replace: true });
+    navigate("/rooms", { replace: true });
   }, [navigate]);
 
   return (
