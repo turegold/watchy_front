@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { logout } from "../api/auth";
 import { clearTokens, getAccessToken } from "../auth/tokenStorage";
+import brandIcon from "../imgs/fav/apple-icon.png";
 
 export default function Header() {
   const navigate = useNavigate();
@@ -20,7 +21,8 @@ export default function Header() {
   return (
     <header className="app-header">
       <Link to="/" className="app-header__brand">
-        Watchy
+        <img src={brandIcon} alt="" className="app-header__brand-icon" />
+        <span>Watchy</span>
       </Link>
       <nav className="app-header__nav">
         <Link to="/rooms">방 목록</Link>

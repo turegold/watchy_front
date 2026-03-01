@@ -843,8 +843,8 @@ input {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  padding: 16px 24px;
-  min-height: 73px;
+  padding: 20px 28px;
+  min-height: 96px;
   border-bottom: 1px solid var(--border);
   background: #fff;
   position: sticky;
@@ -853,8 +853,18 @@ input {
 }
 
 .app-header__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
   font-weight: 700;
-  font-size: 1.1rem;
+  font-size: 1.55rem;
+}
+
+.app-header__brand-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  flex: 0 0 auto;
 }
 
 .app-header__nav {
@@ -866,6 +876,7 @@ input {
 .app-header__nav a,
 .app-header__nav button {
   line-height: 1;
+  font-size: 1.2rem;
 }
 
 .content-page,
