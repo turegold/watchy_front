@@ -63,6 +63,9 @@ const RoomVideo = forwardRef(({ roomId, canControlVideo = true, onControlForbidd
   const pendingStateRef = useRef(null);
   const playerReadyRef = useRef(false);
   const userInteractedRef = useRef(false);
+  // 방장 여부를 ref로도 보관: 플레이어 생성 effect가 canControlVideo 변화로
+  // 재실행(플레이어 재생성)되어 로드 중 영상이 날아가는 것을 막기 위함.
+  const canControlVideoRef = useRef(canControlVideo);
   const lastAppliedRef = useRef({ videoId: null, time: 0, status: null });
   const [needsSoundUnlock, setNeedsSoundUnlock] = useState(false);
   const [localVolume, setLocalVolume] = useState(100);
@@ -291,7 +294,7 @@ const RoomVideo = forwardRef(({ roomId, canControlVideo = true, onControlForbidd
     }
 
     const callControlApi = async (action, time) => {
-      if (!roomId || !canControlVideo) return;
+      if (!roomId || !canControlVideoRef.current) return;
       try {
         await controlRoomVideo(roomId, {
           roomId: Number(roomId),
@@ -400,6 +403,7 @@ const RoomVideo = forwardRef(({ roomId, canControlVideo = true, onControlForbidd
           rel: 0,
           modestbranding: 1,
           playsinline: 1,
+          origin: window.location.origin,
         },
         events: {
           onReady: (event) => {
@@ -537,7 +541,14 @@ const RoomVideo = forwardRef(({ roomId, canControlVideo = true, onControlForbidd
       window.removeEventListener("touchstart", handleSeekStart);
       window.removeEventListener("touchend", handleSeekEnd);
     };
-  }, [videoId, roomId, canControlVideo, applyLocalAudio, applyServerState]);
+    // canControlVideo는 의존성에서 제외 — 방장 여부가 뒤늦게 확정/변경돼도
+    // 플레이어를 재생성하지 않게 한다. (제어 로직은 canControlVideoRef로 현재값 참조)
+  }, [videoId, roomId, applyLocalAudio, applyServerState]);
+
+  // 방장 여부 최신값을 ref에 동기화 (플레이어 재생성 없이 제어 권한만 갱신)
+  useEffect(() => {
+    canControlVideoRef.current = canControlVideo;
+  }, [canControlVideo]);
 
   useEffect(() => {
     if (!playerRef.current || !videoId) return;
