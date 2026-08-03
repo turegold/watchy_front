@@ -91,75 +91,90 @@ export default function ProfilePage() {
     }
   };
 
-  return (
-    <main className="content-page">
-      <section className="card">
-        <h1>유저 정보</h1>
+  const level = Number(user?.level ?? 1);
+  const exp = Number(user?.exp ?? 0);
+  const expInLevel = ((exp % 1000) + 1000) % 1000; // 현재 레벨 내 진행(0~999)
+  const toNext = 1000 - expInLevel;
+  const expPct = `${(expInLevel / 1000) * 100}%`;
+  const nicknameInitial = String(user?.nickname ?? "?").slice(0, 1).toUpperCase();
 
-        {loading && <p className="muted">불러오는 중...</p>}
-        {!loading && error && <p className="error-text">{error}</p>}
+  return (
+    <main className="profile-page">
+      <div className="profile-wrap">
+        {loading && <div className="profile-card profile-status">불러오는 중...</div>}
+        {!loading && error && <div className="profile-card profile-status">{error}</div>}
 
         {!loading && !error && (
-          <div className="profile-grid">
-            <div className="profile-image">
-              {user?.profileImageUrl ? (
-                <img
-                  src={String(user.profileImageUrl)}
-                  alt="프로필 이미지"
-                  className="profile-image__preview"
-                />
-              ) : (
-                <div className="profile-image__placeholder">이미지 없음</div>
-              )}
-              <button
-                type="button"
-                className="primary-button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={imageUploading}
-              >
-                {imageUploading ? "업로드 중..." : "이미지 변경"}
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={onSelectImage}
-                style={{ display: "none" }}
-              />
-              {imageMessage && <p className="muted">{imageMessage}</p>}
-            </div>
-            <p>
-              <strong>Email:</strong> {String(user?.email ?? "준비중")}
-            </p>
-            <p>
-              <strong>Nickname:</strong> {String(user?.nickname ?? "준비중")}
-            </p>
-            <p>
-              <strong>Level:</strong> {String(user?.level ?? "준비중")}
-            </p>
-            <p>
-              <strong>Experience:</strong> {String(user?.experience ?? "준비중")}
-            </p>
-          </div>
-        )}
-      </section>
+          <>
+            <section className="profile-hero">
+              <div className="profile-hero__cover" />
+              <div className="profile-hero__body">
+                <div className="profile-hero__row">
+                  <div className="profile-hero__avatar">
+                    {user?.profileImageUrl ? (
+                      <img src={String(user.profileImageUrl)} alt="프로필 이미지" />
+                    ) : (
+                      <span className="profile-hero__avatar-initial">{nicknameInitial}</span>
+                    )}
+                  </div>
+                  <div className="profile-hero__id">
+                    <div className="profile-hero__namerow">
+                      <h1 className="profile-hero__name">{String(user?.nickname ?? "닉네임")}</h1>
+                      <span className="profile-hero__level">Lv.{level}</span>
+                    </div>
+                    <p className="profile-hero__email">{String(user?.email ?? "")}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="profile-hero__photo-btn"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={imageUploading}
+                  >
+                    {imageUploading ? "업로드 중..." : "사진 변경"}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={onSelectImage}
+                    style={{ display: "none" }}
+                  />
+                </div>
 
-      <section className="card">
-        <h2>닉네임 변경</h2>
-        <form className="form" onSubmit={onSubmitNickname}>
-          <label htmlFor="nickname">새 닉네임</label>
-          <input
-            id="nickname"
-            value={nickname}
-            onChange={(event) => setNickname(event.target.value)}
-            placeholder="닉네임 입력"
-          />
-          <button type="submit" className="primary-button">
-            변경하기
-          </button>
-        </form>
-        {resultMessage && <p className="muted">{resultMessage}</p>}
-      </section>
+                {imageMessage && <p className="profile-hint">{imageMessage}</p>}
+
+                <div className="profile-exp">
+                  <div className="profile-exp__meta">
+                    <span>경험치 {expInLevel} / 1,000</span>
+                    <span className="profile-exp__next">다음 레벨까지 {toNext}</span>
+                  </div>
+                  <div className="profile-exp__bar">
+                    <div className="profile-exp__fill" style={{ width: expPct }} />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="profile-card">
+              <h2 className="profile-card__title">닉네임 변경</h2>
+              <p className="profile-card__sub">채팅과 방 목록에서 이 이름으로 보여요.</p>
+              <form className="profile-nickname" onSubmit={onSubmitNickname}>
+                <input
+                  id="nickname"
+                  value={nickname}
+                  onChange={(event) => setNickname(event.target.value)}
+                  placeholder="닉네임 입력"
+                />
+                <button type="submit" className="profile-nickname__submit">
+                  변경하기
+                </button>
+              </form>
+              {resultMessage && <p className="profile-hint">{resultMessage}</p>}
+              <p className="profile-hint">2~50자 · 이미 사용 중인 닉네임은 사용할 수 없어요.</p>
+            </section>
+          </>
+        )}
+      </div>
     </main>
   );
 }

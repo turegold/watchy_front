@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import RoomVideo from "../components/RoomVideo";
 import RoomChatPanel from "../components/chat/RoomChatPanel";
@@ -323,20 +323,33 @@ const RoomPage = () => {
 
   return (
     <div className="page page--room">
-      <header className="topbar">
-        <div className="topbar__brand">
-          <div className="logo-badge">WP</div>
-          <div>
-            <p className="eyebrow">Watch Party</p>
-            <h1 className="title">Room {roomId}</h1>
-            <p className="eyebrow">
-              방장: {roomMeta?.hostNickname ?? "확인 중"} | 인원: {roomMeta?.participantCount ?? "-"}명
+      <header className="room-topbar">
+        <div className="room-topbar__left">
+          <button
+            type="button"
+            className="room-topbar__back"
+            onClick={() => navigate("/rooms")}
+            aria-label="방 목록으로"
+          >
+            ‹
+          </button>
+          <div className="room-topbar__meta">
+            <div className="room-topbar__titlerow">
+              <h1 className="room-topbar__title">{roomMeta?.title ?? `Room ${roomId}`}</h1>
+              <span className="room-topbar__live">
+                <span className="room-topbar__live-dot" />
+                LIVE
+              </span>
+            </div>
+            <p className="room-topbar__sub">
+              <strong>{roomMeta?.hostNickname ?? "확인 중"}</strong> 님이 방장 · 참여자{" "}
+              {roomMeta?.participantCount ?? "-"}명
             </p>
           </div>
         </div>
-        <div className="topbar__actions">
+        <div className="room-topbar__actions">
           <button
-            className="btn btn--ghost"
+            className="room-topbar__btn"
             type="button"
             onClick={() => {
               if (!canControlVideo) return;
@@ -345,14 +358,16 @@ const RoomPage = () => {
             disabled={!canControlVideo}
             title={canControlVideo ? "영상 설정" : "방장만 영상 설정 가능"}
           >
-            설정
+            영상 설정
           </button>
-          <button className="btn btn--ghost" type="button" onClick={handleLeaveRoom} disabled={leaving}>
+          <button
+            className="room-topbar__btn room-topbar__btn--soft"
+            type="button"
+            onClick={handleLeaveRoom}
+            disabled={leaving}
+          >
             {leaving ? "나가는 중..." : "나가기"}
           </button>
-          <Link className="btn btn--ghost" to="/rooms">
-            목록
-          </Link>
         </div>
       </header>
       {joinStatus && joinStatus !== "joining" && <p className="error-text">{joinStatus}</p>}

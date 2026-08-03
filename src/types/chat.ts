@@ -4,6 +4,7 @@ export type ChatMessage = {
   roomId: number;
   sendUserId: number;
   nickname: string;
+  profileImageUrl?: string | null;
   message: string;
   createdAt: string;
 };
