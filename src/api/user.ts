@@ -2,11 +2,12 @@ import axios from "axios";
 import { http } from "./http";
 
 export type MeResponseData = {
+  id?: number | string;
   userId?: number | string;
   email?: string;
   nickname?: string;
   level?: number;
-  experience?: number;
+  exp?: number;
   profileImageUrl?: string | null;
   [key: string]: unknown;
 };

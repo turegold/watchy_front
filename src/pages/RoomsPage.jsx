@@ -3,42 +3,17 @@ import { useNavigate } from "react-router-dom";
 import RoomCard from "../components/RoomCard";
 import { createRoom } from "../api/room";
 import { fetchRooms, joinRoom } from "../api/rooms";
-import { getMe } from "../api/user";
 
 const RoomsPage = () => {
   const navigate = useNavigate();
   const [rooms, setRooms] = useState([]);
   const [status, setStatus] = useState("loading");
   const [statusMessage, setStatusMessage] = useState(null);
-  const [currentUserNickname, setCurrentUserNickname] = useState("Guest");
   const [createOpen, setCreateOpen] = useState(false);
   const [newRoomTitle, setNewRoomTitle] = useState("");
   const [newRoomPrivate, setNewRoomPrivate] = useState(false);
   const [createStatus, setCreateStatus] = useState(null);
   const [joiningRoomId, setJoiningRoomId] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const fetchMe = async () => {
-      try {
-        const response = await getMe();
-        const me = response?.data ?? {};
-        if (!cancelled) {
-          setCurrentUserNickname(me.nickname ?? "Guest");
-        }
-      } catch {
-        if (!cancelled) {
-          setCurrentUserNickname("Guest");
-        }
-      }
-    };
-
-    fetchMe();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const loadRooms = useCallback(async () => {
     try {
@@ -67,7 +42,9 @@ const RoomsPage = () => {
   if (status === "loading") {
     return (
       <div className="rooms-page">
-        <div className="rooms-page__status">방 목록을 불러오는 중...</div>
+        <main className="rooms-main">
+          <div className="rooms-page__status">방 목록을 불러오는 중...</div>
+        </main>
       </div>
     );
   }
@@ -75,7 +52,9 @@ const RoomsPage = () => {
   if (status === "error") {
     return (
       <div className="rooms-page">
-        <div className="rooms-page__status">{statusMessage ?? "방 목록을 불러오지 못했습니다."}</div>
+        <main className="rooms-main">
+          <div className="rooms-page__status">{statusMessage ?? "방 목록을 불러오지 못했습니다."}</div>
+        </main>
       </div>
     );
   }
@@ -127,81 +106,74 @@ const RoomsPage = () => {
     }
   };
 
+  const totalPeople = rooms.reduce(
+    (acc, room) => acc + Number(room.participantCount ?? room.memberCount ?? 0),
+    0,
+  );
+
   return (
     <div className="rooms-page">
-      <header className="rooms-header">
-        <div className="rooms-header__brand">
-          <div className="brand-mark">WP</div>
-          <div>
-            <p className="brand-label">Watch Party</p>
-            <h1 className="brand-title">방 목록</h1>
-          </div>
-        </div>
-        <div className="rooms-header__user">
-          <span className="user-name">{currentUserNickname}</span>
-          <div className="user-avatar">{String(currentUserNickname).slice(0, 1).toUpperCase()}</div>
-        </div>
-      </header>
-
-      <div className="rooms-tabs">
-        <button
-          className={`tab-button ${createOpen ? "tab-button--active" : ""}`}
-          type="button"
-          onClick={() => {
-            setCreateOpen((prev) => !prev);
-            setCreateStatus(null);
-          }}
-        >
-          방 만들기
-        </button>
-        <button className="tab-button" type="button" disabled>
-          빠른 입장
-        </button>
-        <button className="tab-button" type="button">
-          즐겨찾기
-        </button>
-      </div>
-
-      {statusMessage && <p className="error-text">{statusMessage}</p>}
-
-      {createOpen && (
-        <div className="rooms-page__status">
-          <div className="form">
-            <label htmlFor="create-room-title">방 제목</label>
-            <input
-              id="create-room-title"
-              type="text"
-              value={newRoomTitle}
-              onChange={(event) => setNewRoomTitle(event.target.value)}
-              placeholder="예: 주말 영화 감상방"
-            />
-            <label>
-              <input
-                type="checkbox"
-                checked={newRoomPrivate}
-                onChange={(event) => setNewRoomPrivate(event.target.checked)}
-              />{" "}
-              비공개 방
-            </label>
-            <button
-              className="primary-button"
-              type="button"
-              onClick={handleCreateRoom}
-              disabled={createStatus === "creating"}
-            >
-              {createStatus === "creating" ? "생성 중..." : "생성"}
-            </button>
-            {createStatus && createStatus !== "creating" && createStatus !== "created" && (
-              <p className="error-text">{createStatus}</p>
-            )}
-          </div>
-        </div>
-      )}
-
       <main className="rooms-main">
+        <div className="rooms-heading">
+          <div>
+            <p className="rooms-heading__eyebrow">WATCH PARTY</p>
+            <h1 className="rooms-heading__title">지금 열려 있는 방</h1>
+            <p className="rooms-heading__sub">
+              {rooms.length}개의 방에서 {totalPeople}명이 함께 보고 있어요
+            </p>
+          </div>
+          <button
+            type="button"
+            className="rooms-create-btn"
+            onClick={() => {
+              setCreateOpen((prev) => !prev);
+              setCreateStatus(null);
+            }}
+          >
+            <span className="rooms-create-btn__plus">+</span>
+            방 만들기
+          </button>
+        </div>
+
+        {statusMessage && <p className="error-text">{statusMessage}</p>}
+
+        {createOpen && (
+          <section className="rooms-create">
+            <h2 className="rooms-create__title">새 방 만들기</h2>
+            <div className="rooms-create__row">
+              <input
+                className="rooms-create__input"
+                type="text"
+                value={newRoomTitle}
+                onChange={(event) => setNewRoomTitle(event.target.value)}
+                placeholder="예: 주말 영화 감상방"
+              />
+              <button
+                type="button"
+                className={`rooms-create__toggle ${newRoomPrivate ? "is-on" : ""}`}
+                onClick={() => setNewRoomPrivate((prev) => !prev)}
+              >
+                <span className="rooms-create__toggle-mark">{newRoomPrivate ? "✓" : ""}</span>
+                비공개 방
+              </button>
+              <button
+                type="button"
+                className="rooms-create__submit"
+                onClick={handleCreateRoom}
+                disabled={createStatus === "creating"}
+              >
+                {createStatus === "creating" ? "생성 중..." : "생성"}
+              </button>
+            </div>
+            {createStatus && createStatus !== "creating" && createStatus !== "created" && (
+              <p className="error-text" style={{ marginTop: 12 }}>{createStatus}</p>
+            )}
+          </section>
+        )}
+
         <div className="rooms-grid">
           {rooms.length === 0 ? (
-            <div className="rooms-page__status">현재 생성된 방이 없습니다.</div>
+            <div className="rooms-empty">현재 생성된 방이 없습니다. 첫 방을 만들어보세요!</div>
           ) : (
             rooms.map((room) => (
               <RoomCard
@@ -214,12 +186,6 @@ const RoomsPage = () => {
           )}
         </div>
       </main>
-
-      <footer className="rooms-footer">
-        <div className="rooms-footer__placeholder">
-          채팅/정보 패널을 여기에 확장할 수 있습니다.
-        </div>
-      </footer>
     </div>
   );
 };

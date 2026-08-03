@@ -8,6 +8,15 @@ const formatMessageTime = (isoString) => {
   return parsed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 };
 
+// 닉네임 기준 안정적인 아바타 색상
+const AVATAR_COLORS = ["#69be97", "#46a57e", "#8fd3b0", "#2e8060", "#58b58c", "#a7dcc2"];
+const colorFor = (name) => {
+  const key = String(name || "?");
+  let hash = 0;
+  for (let i = 0; i < key.length; i += 1) hash = key.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+};
+
 const RoomChatPanel = ({ roomId, onEvent }) => {
   const parsedRoomId = useMemo(() => {
     const next = Number(roomId);
@@ -55,9 +64,9 @@ const RoomChatPanel = ({ roomId, onEvent }) => {
             return (
               <div
                 key={`${event.createdAt}-${event.system.type}-${event.system.message}-${index}`}
-                className="chat-system-message"
+                className="chat-row chat-row--system"
               >
-                <span className="chat-system-message__text">{event.system.message}</span>
+                <span className="chat-system">{event.system.message}</span>
               </div>
             );
           }
@@ -66,17 +75,30 @@ const RoomChatPanel = ({ roomId, onEvent }) => {
             return null;
           }
 
-          const optimistic = event.chat.sendUserId === -1;
+          const chat = event.chat;
+          const isMe = chat.sendUserId === -1;
+          const nickname = chat.nickname || "unknown";
+          const initial = String(nickname).slice(0, 1).toUpperCase();
+
           return (
             <div
-              key={`${event.createdAt}-${event.chat.nickname}-${event.chat.message}-${index}`}
-              className={`chat-bubble ${optimistic ? "chat-bubble--me" : ""}`}
+              key={`${event.createdAt}-${nickname}-${chat.message}-${index}`}
+              className={`chat-row chat-row--chat ${isMe ? "chat-row--me" : ""}`}
             >
-              <div className="chat-bubble__meta">
-                <span className="chat-bubble__name">{event.chat.nickname || "unknown"}</span>
-                <span className="chat-bubble__time">{formatMessageTime(event.chat.createdAt)}</span>
+              {chat.profileImageUrl ? (
+                <img src={chat.profileImageUrl} alt="" className="chat-avatar" />
+              ) : (
+                <span className="chat-avatar chat-avatar--initial" style={{ background: colorFor(nickname) }}>
+                  {initial}
+                </span>
+              )}
+              <div className="chat-bubble-wrap">
+                <div className="chat-bubble-meta">
+                  <span className="chat-bubble-name">{nickname}</span>
+                  <span className="chat-bubble-time">{formatMessageTime(chat.createdAt)}</span>
+                </div>
+                <div className="chat-bubble">{chat.message}</div>
               </div>
-              <p>{event.chat.message}</p>
             </div>
           );
         })}
