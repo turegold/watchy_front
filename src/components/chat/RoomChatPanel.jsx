@@ -17,12 +17,12 @@ const colorFor = (name) => {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 };
 
-const RoomChatPanel = ({ roomId, onEvent }) => {
+const RoomChatPanel = ({ roomId, onEvent, me }) => {
   const parsedRoomId = useMemo(() => {
     const next = Number(roomId);
     return Number.isFinite(next) ? next : null;
   }, [roomId]);
-  const { events, sendMessage } = useChat(parsedRoomId, { onEvent });
+  const { events, sendMessage } = useChat(parsedRoomId, { onEvent, me });
   const [input, setInput] = useState("");
   const [isComposing, setIsComposing] = useState(false);
   const messagesRef = useRef(null);
