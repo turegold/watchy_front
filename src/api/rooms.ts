@@ -40,6 +40,8 @@ const normalizeRoomListItem = (room: Record<string, unknown>): RoomListItem | nu
       host.name ??
       null
     ) as string | null;
+  const hostProfileImageUrl =
+    (room.hostProfileImageUrl ?? host.profileImageUrl ?? null) as string | null;
   const participantCount = resolveNumber(
     room.participantCount,
     room.memberCount,
@@ -58,6 +60,7 @@ const normalizeRoomListItem = (room: Record<string, unknown>): RoomListItem | nu
     isPrivate,
     hostUserId,
     hostNickname,
+    hostProfileImageUrl,
     participantCount,
     maxMembers,
     videoId,

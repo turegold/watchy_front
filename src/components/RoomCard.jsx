@@ -5,6 +5,7 @@ const RoomCard = ({ room, onJoin, joining = false }) => {
   const memberCount = room.participantCount ?? room.memberCount ?? room.members ?? 0;
   const maxMembers = room.maxMembers ?? 8;
   const hostNickname = room.hostNickname ?? room.hostNickName ?? "방장";
+  const hostProfileImageUrl = room.hostProfileImageUrl ?? null;
   const videoId = room.videoId ?? room.currentVideoId ?? room.video?.id;
   const thumbnail =
     room.thumbnailUrl ??
@@ -32,7 +33,11 @@ const RoomCard = ({ room, onJoin, joining = false }) => {
         <div className="room-card__info">
           <h2 className="room-card__title">{title}</h2>
           <div className="room-card__host">
-            <span className="room-card__host-avatar">{hostInitial}</span>
+            {hostProfileImageUrl ? (
+              <img src={hostProfileImageUrl} alt="" className="room-card__host-avatar room-card__host-avatar--img" />
+            ) : (
+              <span className="room-card__host-avatar">{hostInitial}</span>
+            )}
             <span className="room-card__host-name">{hostNickname}</span>
             <span className="room-card__host-badge">방장</span>
           </div>

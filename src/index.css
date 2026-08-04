@@ -379,6 +379,11 @@ input {
   box-shadow: 0 0 0 1.5px #bce3ce;
 }
 
+.room-card__host-avatar--img {
+  object-fit: cover;
+  background: #eef2ef;
+}
+
 .room-card__host-name {
   font-size: 0.86rem;
   font-weight: 700;
