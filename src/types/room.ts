@@ -4,6 +4,7 @@ export type RoomListItem = {
   isPrivate: boolean;
   hostUserId: number;
   hostNickname?: string | null;
+  hostProfileImageUrl?: string | null;
   participantCount: number;
   maxMembers?: number;
   videoId?: string | null;
