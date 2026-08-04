@@ -10,14 +10,22 @@ type TimelineEvent = ChatEventResponse & {
   _optimistic?: boolean;
 };
 
+type MeProfile = {
+  nickname?: string | null;
+  profileImageUrl?: string | null;
+};
+
 type UseChatOptions = {
   onEvent?: (event: ChatEventResponse) => void;
+  me?: MeProfile;
 };
 
 const OPTIMISTIC_WINDOW_MS = 10000;
 
 export const useChat = (roomId: number | null, options: UseChatOptions = {}) => {
-  const { onEvent } = options;
+  const { onEvent, me } = options;
+  const myNickname = me?.nickname ?? "나";
+  const myProfileImageUrl = me?.profileImageUrl ?? null;
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [isConnected, setIsConnected] = useState(false);
 
@@ -114,8 +122,9 @@ export const useChat = (roomId: number | null, options: UseChatOptions = {}) => 
         createdAt: new Date().toISOString(),
         chat: {
           roomId,
-          sendUserId: -1,
-          nickname: "me",
+          sendUserId: -1, // 내 메시지 표식(우측 정렬용)
+          nickname: myNickname,
+          profileImageUrl: myProfileImageUrl,
           message,
           createdAt: new Date().toISOString(),
         },
@@ -126,7 +135,7 @@ export const useChat = (roomId: number | null, options: UseChatOptions = {}) => 
       sendChat(roomId, message);
       return true;
     },
-    [roomId],
+    [roomId, myNickname, myProfileImageUrl],
   );
 
   return { events, sendMessage, isConnected };

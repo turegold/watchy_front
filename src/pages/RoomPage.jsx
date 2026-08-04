@@ -53,6 +53,7 @@ const RoomPage = () => {
   const [leaving, setLeaving] = useState(false);
   const [roomMeta, setRoomMeta] = useState(null);
   const [myUserId, setMyUserId] = useState(null);
+  const [myProfile, setMyProfile] = useState(null);
   const joinAttemptedRoomRef = useRef(null);
   const joinedRef = useRef(false);
   const leftRef = useRef(false);
@@ -83,10 +84,15 @@ const RoomPage = () => {
         const nextUserId = parseUserId(me.userId ?? me.id);
         if (!cancelled) {
           setMyUserId(nextUserId);
+          setMyProfile({
+            nickname: me.nickname ?? null,
+            profileImageUrl: me.profileImageUrl ?? null,
+          });
         }
       } catch {
         if (!cancelled) {
           setMyUserId(null);
+          setMyProfile(null);
         }
       }
     };
@@ -383,7 +389,7 @@ const RoomPage = () => {
           />
           {permissionMessage && <p className="video-permission">{permissionMessage}</p>}
         </section>
-        <RoomChatPanel roomId={roomId} onEvent={handleChatEvent} />
+        <RoomChatPanel roomId={roomId} onEvent={handleChatEvent} me={myProfile} />
       </div>
       {settingsOpen && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">
